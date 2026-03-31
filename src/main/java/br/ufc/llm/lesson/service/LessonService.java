@@ -47,8 +47,8 @@ public class LessonService {
                 .build();
 
         if (arquivo != null && !arquivo.isEmpty()) {
-            String filePath = salvarArquivo(arquivo);
             FileType fileType = detectarTipo(arquivo);
+            String filePath = salvarArquivo(arquivo);
             lesson.setFilePath(filePath);
             lesson.setFileType(fileType);
         }

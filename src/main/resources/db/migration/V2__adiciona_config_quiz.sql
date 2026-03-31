@@ -1,0 +1,4 @@
+ALTER TABLE quizzes
+    ADD COLUMN show_wrong_answers   BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN show_correct_answers BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN show_points          BOOLEAN NOT NULL DEFAULT FALSE;

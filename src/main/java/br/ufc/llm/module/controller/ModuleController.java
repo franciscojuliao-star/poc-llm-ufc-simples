@@ -7,8 +7,10 @@ import br.ufc.llm.shared.dto.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -18,13 +20,13 @@ public class ModuleController {
 
     private final ModuleService service;
 
-    @PostMapping("/courses/{courseId}/modules")
+    @PostMapping(value = "/courses/{courseId}/modules", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<ModuleResponse>> criar(
             @PathVariable Long courseId,
-            @RequestBody @Valid ModuleRequest request) {
-        ModuleResponse response = service.criar(courseId, request);
+            @RequestPart("dados") @Valid ModuleRequest request,
+            @RequestPart(value = "imagem", required = false) MultipartFile imagem) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.ok("Módulo criado com sucesso", response));
+                .body(ApiResponse.ok("Módulo criado com sucesso", service.criar(courseId, request, imagem)));
     }
 
     @GetMapping("/courses/{courseId}/modules")

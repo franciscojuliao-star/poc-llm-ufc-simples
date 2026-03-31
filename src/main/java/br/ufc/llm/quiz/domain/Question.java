@@ -1,38 +1,43 @@
-package br.ufc.llm.module.domain;
+package br.ufc.llm.quiz.domain;
 
-import br.ufc.llm.course.domain.Course;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
-@Table(name = "modules")
+@Table(name = "questions")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Module {
+public class Question {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 50)
-    private String name;
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String statement;
+
+    @Column(nullable = false)
+    private int points;
 
     @Column(name = "order_num", nullable = false)
     private int orderNum;
 
-    @Column(name = "image_path", length = 500)
-    private String imagePath;
-
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "course_id", nullable = false)
-    private Course course;
+    @JoinColumn(name = "quiz_id", nullable = false)
+    private Quiz quiz;
+
+    @OneToMany(mappedBy = "question", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Alternative> alternatives = new ArrayList<>();
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

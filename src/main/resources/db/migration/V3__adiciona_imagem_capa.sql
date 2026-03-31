@@ -1,0 +1,2 @@
+ALTER TABLE courses ADD COLUMN image_path VARCHAR(500);
+ALTER TABLE modules ADD COLUMN image_path VARCHAR(500);

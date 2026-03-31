@@ -9,6 +9,7 @@ public record CourseResponse(
         String title,
         String category,
         String description,
+        String imagePath,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
@@ -18,6 +19,7 @@ public record CourseResponse(
                 course.getTitle(),
                 course.getCategory(),
                 course.getDescription(),
+                course.getImagePath(),
                 course.getCreatedAt(),
                 course.getUpdatedAt()
         );

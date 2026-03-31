@@ -8,6 +8,7 @@ public record ModuleResponse(
         Long id,
         String name,
         int orderNum,
+        String imagePath,
         Long courseId,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
@@ -17,6 +18,7 @@ public record ModuleResponse(
                 module.getId(),
                 module.getName(),
                 module.getOrderNum(),
+                module.getImagePath(),
                 module.getCourse().getId(),
                 module.getCreatedAt(),
                 module.getUpdatedAt()

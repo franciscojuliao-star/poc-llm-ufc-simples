@@ -1,36 +1,34 @@
-package br.ufc.llm.course.domain;
+package br.ufc.llm.quiz.domain;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.UpdateTimestamp;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "courses")
+@Table(name = "alternatives")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Course {
+public class Alternative {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private String title;
-
-    @Column(nullable = false, length = 100)
-    private String category;
-
     @Column(nullable = false, columnDefinition = "TEXT")
-    private String description;
+    private String text;
 
-    @Column(name = "image_path", length = 500)
-    private String imagePath;
+    @Column(nullable = false)
+    private boolean correct;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "question_id", nullable = false)
+    private Question question;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
