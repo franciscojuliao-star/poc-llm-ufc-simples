@@ -27,7 +27,7 @@ public class LessonController {
     public ResponseEntity<ApiResponse<LessonResponse>> criar(
             @PathVariable Long moduleId,
             @RequestParam("dados") String dadosJson,
-            @RequestPart(value = "arquivo", required = false) MultipartFile arquivo) throws Exception {
+            @RequestParam(value = "arquivo", required = false) MultipartFile arquivo) throws Exception {
         LessonRequest request = objectMapper.readValue(dadosJson, LessonRequest.class);
         LessonResponse response = service.criar(moduleId, request, arquivo);
         return ResponseEntity.status(HttpStatus.CREATED)
