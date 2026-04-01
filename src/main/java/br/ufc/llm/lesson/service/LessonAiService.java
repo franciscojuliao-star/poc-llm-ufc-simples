@@ -73,9 +73,12 @@ public class LessonAiService {
         return lesson.getContentEditor();
     }
 
+    private static final int MAX_CHARS = 12_000;
+
     private String extrairTextoPdf(String filePath) {
         try (PDDocument doc = Loader.loadPDF(new File(filePath))) {
-            return new PDFTextStripper().getText(doc);
+            String texto = new PDFTextStripper().getText(doc);
+            return texto.length() > MAX_CHARS ? texto.substring(0, MAX_CHARS) : texto;
         } catch (IOException e) {
             throw new RegraDeNegocioException("Erro ao extrair texto do PDF: " + e.getMessage());
         }
