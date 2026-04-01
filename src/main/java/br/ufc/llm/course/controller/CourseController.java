@@ -4,7 +4,7 @@ import br.ufc.llm.course.dto.CourseRequest;
 import br.ufc.llm.course.dto.CourseResponse;
 import br.ufc.llm.course.service.CourseService;
 import br.ufc.llm.shared.dto.ApiResponse;
-import jakarta.validation.Valid;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -20,11 +20,13 @@ import java.util.List;
 public class CourseController {
 
     private final CourseService service;
+    private final ObjectMapper objectMapper;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<CourseResponse>> criar(
-            @RequestPart("dados") @Valid CourseRequest request,
-            @RequestPart(value = "imagem", required = false) MultipartFile imagem) {
+            @RequestParam("dados") String dadosJson,
+            @RequestPart(value = "imagem", required = false) MultipartFile imagem) throws Exception {
+        CourseRequest request = objectMapper.readValue(dadosJson, CourseRequest.class);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Curso criado com sucesso", service.criar(request, imagem)));
     }
