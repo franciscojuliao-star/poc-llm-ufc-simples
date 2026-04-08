@@ -4,28 +4,26 @@ import br.ufc.llm.lesson.domain.Lesson;
 import br.ufc.llm.lesson.repository.LessonRepository;
 import br.ufc.llm.module.domain.Module;
 import br.ufc.llm.module.repository.ModuleRepository;
-import br.ufc.llm.quiz.domain.Question;
-import br.ufc.llm.quiz.domain.Quiz;
+import br.ufc.llm.quiz.dto.AlternativeResponse;
+import br.ufc.llm.quiz.dto.QuestionResponse;
 import br.ufc.llm.quiz.dto.QuizGeneratedResponse;
 import br.ufc.llm.quiz.dto.QuizResponse;
 import br.ufc.llm.quiz.repository.QuizRepository;
 import br.ufc.llm.quiz.service.QuizAiService;
+import br.ufc.llm.shared.client.RagIntegracaoClient;
 import br.ufc.llm.shared.exception.RecursoNaoEncontradoException;
 import br.ufc.llm.shared.exception.RegraDeNegocioException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.ai.chat.client.ChatClient;
 
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -34,27 +32,23 @@ class QuizAiServiceTest {
     @Mock private ModuleRepository moduleRepository;
     @Mock private LessonRepository lessonRepository;
     @Mock private QuizRepository quizRepository;
-    @Mock private ChatClient chatClient;
+    @Mock private RagIntegracaoClient ragClient;
 
     private QuizAiService service;
 
     @BeforeEach
     void setUp() {
-        service = new QuizAiService(moduleRepository, lessonRepository, quizRepository, chatClient, new ObjectMapper());
+        service = new QuizAiService(moduleRepository, lessonRepository, quizRepository, ragClient);
     }
 
     private Module moduleMock() {
         return Module.builder().id(1L).name("M1").orderNum(1).build();
     }
 
-    @SuppressWarnings("unchecked")
-    private void mockChatClientJson(String json) {
-        var requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
-        var callResponseSpec = mock(ChatClient.CallResponseSpec.class);
-        when(chatClient.prompt()).thenReturn(requestSpec);
-        when(requestSpec.user(anyString())).thenReturn(requestSpec);
-        when(requestSpec.call()).thenReturn(callResponseSpec);
-        when(callResponseSpec.content()).thenReturn(json);
+    private QuizGeneratedResponse quizMock(String statement) {
+        var alternative = new AlternativeResponse(null, "Resposta", true);
+        var question = new QuestionResponse(null, statement, 1, 0, List.of(alternative));
+        return new QuizGeneratedResponse(List.of(question));
     }
 
     @Test
@@ -65,16 +59,12 @@ class QuizAiServiceTest {
 
         when(moduleRepository.findById(1L)).thenReturn(Optional.of(module));
         when(lessonRepository.findByModuleIdOrderByOrderNumAsc(1L)).thenReturn(List.of(lesson));
-
-        mockChatClientJson("""
-                [{"statement":"O que é Java?","points":1,"alternatives":[{"text":"Linguagem","correct":true},{"text":"Framework","correct":false}]}]
-                """);
+        when(ragClient.gerarQuiz(anyString(), eq(5))).thenReturn(quizMock("O que é Java?"));
 
         QuizGeneratedResponse response = service.gerarQuiz(1L, 5);
 
         assertThat(response.questions()).hasSize(1);
         assertThat(response.questions().get(0).statement()).isEqualTo("O que é Java?");
-        assertThat(response.questions().get(0).alternatives()).hasSize(2);
         verifyNoInteractions(quizRepository);
     }
 
@@ -100,19 +90,18 @@ class QuizAiServiceTest {
     }
 
     @Test
-    void deveLancarExcecaoQuandoIaRetornaJsonInvalido() {
+    void deveLancarExcecaoQuandoRagRetornarErro() {
         Module module = moduleMock();
         Lesson lesson = Lesson.builder().id(1L).name("Aula 1").orderNum(1)
                 .contentEditor("Conteúdo").module(module).build();
 
         when(moduleRepository.findById(1L)).thenReturn(Optional.of(module));
         when(lessonRepository.findByModuleIdOrderByOrderNumAsc(1L)).thenReturn(List.of(lesson));
-
-        mockChatClientJson("isso não é JSON válido");
+        when(ragClient.gerarQuiz(anyString(), anyInt()))
+                .thenThrow(new RegraDeNegocioException("RAG indisponível"));
 
         assertThatThrownBy(() -> service.gerarQuiz(1L, 5))
-                .isInstanceOf(RegraDeNegocioException.class)
-                .hasMessageContaining("IA retornou formato inválido");
+                .isInstanceOf(RegraDeNegocioException.class);
     }
 
     @Test
@@ -123,15 +112,11 @@ class QuizAiServiceTest {
 
         when(moduleRepository.findById(1L)).thenReturn(Optional.of(module));
         when(lessonRepository.findByModuleIdOrderByOrderNumAsc(1L)).thenReturn(List.of(lesson));
+        when(ragClient.gerarQuiz(anyString(), eq(5))).thenReturn(quizMock("Pergunta?"));
 
-        mockChatClientJson("""
-                [{"statement":"Pergunta?","points":1,"alternatives":[{"text":"A","correct":true},{"text":"B","correct":false}]}]
-                """);
         service.gerarQuiz(1L, 5);
 
-        QuizGeneratedResponse pendente = service.buscarPendente(1L);
-
-        assertThat(pendente.questions()).hasSize(1);
+        assertThat(service.buscarPendente(1L).questions()).hasSize(1);
     }
 
     @Test
@@ -150,17 +135,14 @@ class QuizAiServiceTest {
         when(moduleRepository.findById(1L)).thenReturn(Optional.of(module));
         when(lessonRepository.findByModuleIdOrderByOrderNumAsc(1L)).thenReturn(List.of(lesson));
         when(quizRepository.existsByModuleId(1L)).thenReturn(false);
+        when(ragClient.gerarQuiz(anyString(), eq(5))).thenReturn(quizMock("Pergunta?"));
         when(quizRepository.save(any())).thenAnswer(inv -> {
-            Quiz q = inv.getArgument(0);
+            var q = inv.getArgument(0, br.ufc.llm.quiz.domain.Quiz.class);
             q.setId(1L);
             return q;
         });
 
-        mockChatClientJson("""
-                [{"statement":"Pergunta?","points":1,"alternatives":[{"text":"A","correct":true},{"text":"B","correct":false}]}]
-                """);
         service.gerarQuiz(1L, 5);
-
         QuizResponse response = service.confirmarQuiz(1L);
 
         assertThat(response.moduleId()).isEqualTo(1L);
@@ -184,15 +166,11 @@ class QuizAiServiceTest {
 
         when(moduleRepository.findById(1L)).thenReturn(Optional.of(module));
         when(lessonRepository.findByModuleIdOrderByOrderNumAsc(1L)).thenReturn(List.of(lesson));
+        when(ragClient.gerarQuiz(anyString(), eq(5)))
+                .thenReturn(quizMock("Primeira?"))
+                .thenReturn(quizMock("Segunda?"));
 
-        mockChatClientJson("""
-                [{"statement":"Primeira?","points":1,"alternatives":[{"text":"A","correct":true},{"text":"B","correct":false}]}]
-                """);
         service.gerarQuiz(1L, 5);
-
-        mockChatClientJson("""
-                [{"statement":"Segunda?","points":2,"alternatives":[{"text":"X","correct":true},{"text":"Y","correct":false}]}]
-                """);
         QuizGeneratedResponse novo = service.gerarQuiz(1L, 5);
 
         assertThat(novo.questions().get(0).statement()).isEqualTo("Segunda?");

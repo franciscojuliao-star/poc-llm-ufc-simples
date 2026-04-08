@@ -13,16 +13,14 @@ import br.ufc.llm.quiz.dto.QuestionResponse;
 import br.ufc.llm.quiz.dto.QuizGeneratedResponse;
 import br.ufc.llm.quiz.dto.QuizResponse;
 import br.ufc.llm.quiz.repository.QuizRepository;
+import br.ufc.llm.shared.client.RagIntegracaoClient;
 import br.ufc.llm.shared.exception.RecursoNaoEncontradoException;
 import br.ufc.llm.shared.exception.RegraDeNegocioException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -37,23 +35,10 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class QuizAiService {
 
-    private static final String PROMPT_TEMPLATE = """
-            Você é um especialista em avaliações educacionais. A partir do conteúdo abaixo, gere %d perguntas \
-            de múltipla escolha em formato JSON. Retorne APENAS um array JSON sem nenhum texto adicional, \
-            seguindo exatamente este formato:
-            [{"statement":"...","points":1,"alternatives":[{"text":"...","correct":true},{"text":"...","correct":false}]}]
-
-            Cada pergunta deve ter exatamente 4 alternativas, com apenas 1 correta.
-
-            Conteúdo do módulo:
-            %s
-            """;
-
     private final ModuleRepository moduleRepository;
     private final LessonRepository lessonRepository;
     private final QuizRepository quizRepository;
-    private final ChatClient chatClient;
-    private final ObjectMapper objectMapper;
+    private final RagIntegracaoClient ragClient;
 
     private final Map<Long, QuizGeneratedResponse> pendingQuizzes = new ConcurrentHashMap<>();
 
@@ -63,12 +48,7 @@ public class QuizAiService {
 
         String conteudo = coletarConteudo(moduleId);
 
-        String json = chatClient.prompt()
-                .user(PROMPT_TEMPLATE.formatted(quantidade, conteudo))
-                .call()
-                .content();
-
-        QuizGeneratedResponse gerado = parseQuiz(json);
+        QuizGeneratedResponse gerado = ragClient.gerarQuiz(conteudo, quantidade);
         pendingQuizzes.put(moduleId, gerado);
         return gerado;
     }
@@ -143,32 +123,6 @@ public class QuizAiService {
         }
 
         return sb.toString();
-    }
-
-    @SuppressWarnings("unchecked")
-    private QuizGeneratedResponse parseQuiz(String json) {
-        try {
-            String jsonLimpo = json.trim()
-                    .replaceAll("(?s)```json\\s*", "")
-                    .replaceAll("```", "")
-                    .trim();
-
-            List<Map<String, Object>> lista = objectMapper.readValue(jsonLimpo, new TypeReference<>() {});
-            List<QuestionResponse> questions = lista.stream().map(m -> {
-                String statement = (String) m.get("statement");
-                int points = ((Number) m.getOrDefault("points", 1)).intValue();
-                List<Map<String, Object>> alts = (List<Map<String, Object>>) m.get("alternatives");
-                List<AlternativeResponse> alternatives = alts == null ? List.of() : alts.stream()
-                        .map(a -> new AlternativeResponse(null, (String) a.get("text"), Boolean.TRUE.equals(a.get("correct"))))
-                        .toList();
-                return new QuestionResponse(null, statement, points, 0, alternatives);
-            }).toList();
-
-            return new QuizGeneratedResponse(questions);
-        } catch (Exception e) {
-            log.error("Falha ao parsear JSON do quiz gerado pela IA. Resposta: {}", json, e);
-            throw new RegraDeNegocioException("IA retornou formato inválido ao gerar quiz");
-        }
     }
 
     private String extrairTextoPdf(String filePath) throws IOException {

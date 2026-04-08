@@ -44,6 +44,11 @@ springdoc:
 upload:
   dir: ${UPLOAD_DIR:uploads}
 
+rag:
+  api:
+    base-url: ${RAG_API_URL:http://localhost:8000}
+    key: ${RAG_API_KEY:integracoes-dev-key-mude-em-producao}
+
 logging:
   level:
     br.ufc.llm: DEBUG
