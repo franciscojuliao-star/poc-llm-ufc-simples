@@ -7,9 +7,7 @@
     { "key": "base_url", "value": "http://localhost:8080" },
     { "key": "course_id", "value": "1" },
     { "key": "module_id", "value": "1" },
-    { "key": "lesson_id", "value": "1" },
-    { "key": "quiz_id", "value": "1" },
-    { "key": "question_id", "value": "1" }
+    { "key": "lesson_id", "value": "1" }
   ],
   "item": [
     {
@@ -209,56 +207,6 @@
           "request": {
             "method": "GET",
             "url": { "raw": "{{base_url}}/modules/{{module_id}}/quiz", "host": ["{{base_url}}"], "path": ["modules", "{{module_id}}", "quiz"] }
-          }
-        },
-        {
-          "name": "Configurar exibição do quiz",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{base_url}}/quiz/{{quiz_id}}", "host": ["{{base_url}}"], "path": ["quiz", "{{quiz_id}}"] },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"showWrongAnswers\": true,\n  \"showCorrectAnswers\": true,\n  \"showPoints\": true\n}"
-            }
-          }
-        },
-        {
-          "name": "Adicionar pergunta ao quiz",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{base_url}}/quiz/{{quiz_id}}/questions", "host": ["{{base_url}}"], "path": ["quiz", "{{quiz_id}}", "questions"] },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"statement\": \"O que é polimorfismo?\",\n  \"points\": 2,\n  \"alternatives\": [\n    { \"text\": \"Capacidade de um objeto assumir várias formas\", \"correct\": true },\n    { \"text\": \"Processo de criação de objetos\", \"correct\": false },\n    { \"text\": \"Tipo de herança múltipla\", \"correct\": false },\n    { \"text\": \"Método de encapsulamento\", \"correct\": false }\n  ]\n}"
-            }
-          }
-        },
-        {
-          "name": "Listar perguntas do quiz",
-          "request": {
-            "method": "GET",
-            "url": { "raw": "{{base_url}}/quiz/{{quiz_id}}/questions", "host": ["{{base_url}}"], "path": ["quiz", "{{quiz_id}}", "questions"] }
-          }
-        },
-        {
-          "name": "Adicionar alternativa a uma pergunta",
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "url": { "raw": "{{base_url}}/questions/{{question_id}}/alternatives", "host": ["{{base_url}}"], "path": ["questions", "{{question_id}}", "alternatives"] },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"text\": \"Nova alternativa\",\n  \"correct\": false\n}"
-            }
-          }
-        },
-        {
-          "name": "Listar alternativas da pergunta",
-          "request": {
-            "method": "GET",
-            "url": { "raw": "{{base_url}}/questions/{{question_id}}/alternatives", "host": ["{{base_url}}"], "path": ["questions", "{{question_id}}", "alternatives"] }
           }
         }
       ]
