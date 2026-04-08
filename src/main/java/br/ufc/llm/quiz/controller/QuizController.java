@@ -1,10 +1,5 @@
 package br.ufc.llm.quiz.controller;
 
-import br.ufc.llm.quiz.dto.AlternativeRequest;
-import br.ufc.llm.quiz.dto.AlternativeResponse;
-import br.ufc.llm.quiz.dto.QuestionRequest;
-import br.ufc.llm.quiz.dto.QuestionResponse;
-import br.ufc.llm.quiz.dto.QuizConfigRequest;
 import br.ufc.llm.quiz.dto.QuizGeneratedResponse;
 import br.ufc.llm.quiz.dto.QuizRequest;
 import br.ufc.llm.quiz.dto.QuizResponse;
@@ -16,8 +11,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -37,39 +30,6 @@ public class QuizController {
     @GetMapping("/modules/{moduleId}/quiz")
     public ResponseEntity<ApiResponse<QuizResponse>> buscar(@PathVariable Long moduleId) {
         return ResponseEntity.ok(ApiResponse.ok(service.buscarPorModulo(moduleId)));
-    }
-
-    @PostMapping("/quiz/{quizId}")
-    public ResponseEntity<ApiResponse<QuizResponse>> configurar(
-            @PathVariable Long quizId,
-            @RequestBody QuizConfigRequest request) {
-        return ResponseEntity.ok(ApiResponse.ok("Quiz configurado com sucesso", service.configurar(quizId, request)));
-    }
-
-    @PostMapping("/quiz/{quizId}/questions")
-    public ResponseEntity<ApiResponse<QuestionResponse>> adicionarPergunta(
-            @PathVariable Long quizId,
-            @RequestBody @Valid QuestionRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.ok("Pergunta adicionada com sucesso", service.adicionarPergunta(quizId, request)));
-    }
-
-    @GetMapping("/quiz/{quizId}/questions")
-    public ResponseEntity<ApiResponse<List<QuestionResponse>>> listarPerguntas(@PathVariable Long quizId) {
-        return ResponseEntity.ok(ApiResponse.ok(service.listarPerguntas(quizId)));
-    }
-
-    @PostMapping("/questions/{questionId}/alternatives")
-    public ResponseEntity<ApiResponse<AlternativeResponse>> adicionarAlternativa(
-            @PathVariable Long questionId,
-            @RequestBody @Valid AlternativeRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.ok("Alternativa adicionada com sucesso", service.adicionarAlternativa(questionId, request)));
-    }
-
-    @GetMapping("/questions/{questionId}/alternatives")
-    public ResponseEntity<ApiResponse<List<AlternativeResponse>>> listarAlternativas(@PathVariable Long questionId) {
-        return ResponseEntity.ok(ApiResponse.ok(service.listarAlternativas(questionId)));
     }
 
     @PostMapping("/modules/{moduleId}/quiz/gerar")
