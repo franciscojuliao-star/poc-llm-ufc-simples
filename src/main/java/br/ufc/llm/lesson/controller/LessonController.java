@@ -5,9 +5,10 @@ import br.ufc.llm.lesson.dto.LessonResponse;
 import br.ufc.llm.lesson.service.LessonAiService;
 import br.ufc.llm.lesson.service.LessonService;
 import br.ufc.llm.shared.dto.ApiResponse;
-import jakarta.validation.Valid;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -20,12 +21,14 @@ public class LessonController {
 
     private final LessonService service;
     private final LessonAiService aiService;
+    private final ObjectMapper objectMapper;
 
-    @PostMapping("/modules/{moduleId}/lessons")
+    @PostMapping(value = "/modules/{moduleId}/lessons", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<LessonResponse>> criar(
             @PathVariable Long moduleId,
-            @RequestPart("dados") @Valid LessonRequest request,
-            @RequestPart(value = "arquivo", required = false) MultipartFile arquivo) {
+            @RequestParam("dados") String dadosJson,
+            @RequestParam(value = "arquivo", required = false) MultipartFile arquivo) throws Exception {
+        LessonRequest request = objectMapper.readValue(dadosJson, LessonRequest.class);
         LessonResponse response = service.criar(moduleId, request, arquivo);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Aula criada com sucesso", response));

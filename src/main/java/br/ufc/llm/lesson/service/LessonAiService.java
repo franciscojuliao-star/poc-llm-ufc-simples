@@ -3,12 +3,12 @@ package br.ufc.llm.lesson.service;
 import br.ufc.llm.lesson.domain.FileType;
 import br.ufc.llm.lesson.domain.Lesson;
 import br.ufc.llm.lesson.dto.LessonResponse;
+import br.ufc.llm.shared.client.RagIntegracaoClient;
 import br.ufc.llm.shared.exception.RegraDeNegocioException;
 import lombok.RequiredArgsConstructor;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
-import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -20,7 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor
 public class LessonAiService {
 
-    private final ChatClient chatClient;
+    private final RagIntegracaoClient ragClient;
     private final LessonService lessonService;
 
     private final Map<Long, String> pendingContent = new ConcurrentHashMap<>();
@@ -33,18 +33,7 @@ public class LessonAiService {
             throw new RegraDeNegocioException("A aula não possui conteúdo legível para gerar via IA");
         }
 
-        String conteudo = chatClient.prompt()
-                .user("""
-                        Você é um especialista em educação online. A partir do conteúdo abaixo, \
-                        gere um conteúdo de aula formatado em HTML semântico, bem estruturado, \
-                        com títulos (h2, h3), parágrafos, listas e destaques onde apropriado. \
-                        Retorne apenas o HTML sem delimitadores de código.
-
-                        Conteúdo:
-                        """ + fonte)
-                .call()
-                .content();
-
+        String conteudo = ragClient.gerarConteudoHtml(fonte);
         pendingContent.put(lessonId, conteudo);
         return conteudo;
     }
@@ -73,9 +62,12 @@ public class LessonAiService {
         return lesson.getContentEditor();
     }
 
+    private static final int MAX_CHARS = 12_000;
+
     private String extrairTextoPdf(String filePath) {
         try (PDDocument doc = Loader.loadPDF(new File(filePath))) {
-            return new PDFTextStripper().getText(doc);
+            String texto = new PDFTextStripper().getText(doc);
+            return texto.length() > MAX_CHARS ? texto.substring(0, MAX_CHARS) : texto;
         } catch (IOException e) {
             throw new RegraDeNegocioException("Erro ao extrair texto do PDF: " + e.getMessage());
         }

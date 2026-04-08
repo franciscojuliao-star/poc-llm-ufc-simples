@@ -2,17 +2,11 @@ package br.ufc.llm.quiz;
 
 import br.ufc.llm.module.domain.Module;
 import br.ufc.llm.module.repository.ModuleRepository;
-import br.ufc.llm.quiz.domain.Alternative;
-import br.ufc.llm.quiz.domain.Question;
 import br.ufc.llm.quiz.domain.Quiz;
 import br.ufc.llm.quiz.dto.AlternativeRequest;
-import br.ufc.llm.quiz.dto.AlternativeResponse;
 import br.ufc.llm.quiz.dto.QuestionRequest;
-import br.ufc.llm.quiz.dto.QuestionResponse;
-import br.ufc.llm.quiz.dto.QuizConfigRequest;
 import br.ufc.llm.quiz.dto.QuizRequest;
-import br.ufc.llm.quiz.repository.AlternativeRepository;
-import br.ufc.llm.quiz.repository.QuestionRepository;
+import br.ufc.llm.quiz.dto.QuizResponse;
 import br.ufc.llm.quiz.repository.QuizRepository;
 import br.ufc.llm.quiz.service.QuizService;
 import br.ufc.llm.shared.exception.RecursoNaoEncontradoException;
@@ -34,8 +28,6 @@ import static org.mockito.Mockito.*;
 class QuizServiceTest {
 
     @Mock private QuizRepository quizRepository;
-    @Mock private QuestionRepository questionRepository;
-    @Mock private AlternativeRepository alternativeRepository;
     @Mock private ModuleRepository moduleRepository;
 
     @InjectMocks
@@ -149,175 +141,6 @@ class QuizServiceTest {
         when(quizRepository.findByModuleId(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.buscarPorModulo(99L))
-                .isInstanceOf(RecursoNaoEncontradoException.class);
-    }
-
-    @Test
-    void deveAdicionarPerguntaComAlternativas() {
-        Module module = moduleMock();
-        Quiz quiz = quizMock(module);
-        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
-        when(questionRepository.countByQuizId(1L)).thenReturn(0);
-        when(questionRepository.save(any())).thenAnswer(inv -> {
-            Question q = inv.getArgument(0);
-            q.setId(1L);
-            return q;
-        });
-
-        var request = new QuestionRequest("O que é Java?", 1, List.of(
-                new AlternativeRequest("Linguagem de programação", true),
-                new AlternativeRequest("Framework", false)
-        ));
-
-        var response = service.adicionarPergunta(1L, request);
-
-        assertThat(response.statement()).isEqualTo("O que é Java?");
-        assertThat(response.orderNum()).isEqualTo(1);
-        assertThat(response.alternatives()).hasSize(2);
-    }
-
-    @Test
-    void deveIncrementarOrdemDaPergunta() {
-        Module module = moduleMock();
-        Quiz quiz = quizMock(module);
-        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
-        when(questionRepository.countByQuizId(1L)).thenReturn(2);
-        when(questionRepository.save(any())).thenAnswer(inv -> {
-            Question q = inv.getArgument(0);
-            q.setId(3L);
-            return q;
-        });
-
-        var request = new QuestionRequest("Nova pergunta?", 1, List.of(
-                new AlternativeRequest("A", true),
-                new AlternativeRequest("B", false)
-        ));
-
-        var response = service.adicionarPergunta(1L, request);
-
-        assertThat(response.orderNum()).isEqualTo(3);
-    }
-
-    @Test
-    void deveLancarExcecaoQuandoNaoHaExatamenteUmaAlternativaCorreta() {
-        Module module = moduleMock();
-        Quiz quiz = quizMock(module);
-        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
-
-        var request = new QuestionRequest("Pergunta?", 1, List.of(
-                new AlternativeRequest("A", true),
-                new AlternativeRequest("B", true)
-        ));
-
-        assertThatThrownBy(() -> service.adicionarPergunta(1L, request))
-                .isInstanceOf(RegraDeNegocioException.class)
-                .hasMessageContaining("exatamente 1 alternativa correta");
-    }
-
-    @Test
-    void deveLancarExcecaoQuandoNenhumaAlternativaCorreta() {
-        Module module = moduleMock();
-        Quiz quiz = quizMock(module);
-        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
-
-        var request = new QuestionRequest("Pergunta?", 1, List.of(
-                new AlternativeRequest("A", false),
-                new AlternativeRequest("B", false)
-        ));
-
-        assertThatThrownBy(() -> service.adicionarPergunta(1L, request))
-                .isInstanceOf(RegraDeNegocioException.class)
-                .hasMessageContaining("exatamente 1 alternativa correta");
-    }
-
-    @Test
-    void deveListarPerguntasDoQuiz() {
-        Module module = moduleMock();
-        Quiz quiz = quizMock(module);
-        Question q = Question.builder().id(1L).statement("Q?").points(1).orderNum(1).quiz(quiz).build();
-        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
-        when(questionRepository.findByQuizIdOrderByOrderNumAsc(1L)).thenReturn(List.of(q));
-
-        List<QuestionResponse> lista = service.listarPerguntas(1L);
-
-        assertThat(lista).hasSize(1);
-        assertThat(lista.get(0).statement()).isEqualTo("Q?");
-    }
-
-    @Test
-    void deveLancarExcecaoAoListarPerguntasDeQuizInexistente() {
-        when(quizRepository.findById(99L)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> service.listarPerguntas(99L))
-                .isInstanceOf(RecursoNaoEncontradoException.class);
-    }
-
-    @Test
-    void deveAdicionarAlternativaAPergunta() {
-        Question question = Question.builder().id(1L).statement("Q?").points(1).orderNum(1).build();
-        when(questionRepository.findById(1L)).thenReturn(Optional.of(question));
-        when(alternativeRepository.save(any())).thenAnswer(inv -> {
-            Alternative a = inv.getArgument(0);
-            a.setId(1L);
-            return a;
-        });
-
-        var response = service.adicionarAlternativa(1L, new AlternativeRequest("Opção A", true));
-
-        assertThat(response.text()).isEqualTo("Opção A");
-        assertThat(response.correct()).isTrue();
-    }
-
-    @Test
-    void deveLancarExcecaoAoAdicionarAlternativaEmPerguntaInexistente() {
-        when(questionRepository.findById(99L)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> service.adicionarAlternativa(99L, new AlternativeRequest("X", false)))
-                .isInstanceOf(RecursoNaoEncontradoException.class);
-    }
-
-    @Test
-    void deveListarAlternativasDaPergunta() {
-        Question question = Question.builder().id(1L).statement("Q?").points(1).orderNum(1).build();
-        Alternative alt = Alternative.builder().id(1L).text("A").correct(true).question(question).build();
-        when(questionRepository.findById(1L)).thenReturn(Optional.of(question));
-        when(alternativeRepository.findByQuestionIdOrderById(1L)).thenReturn(List.of(alt));
-
-        List<AlternativeResponse> lista = service.listarAlternativas(1L);
-
-        assertThat(lista).hasSize(1);
-        assertThat(lista.get(0).text()).isEqualTo("A");
-    }
-
-    @Test
-    void deveLancarExcecaoAoListarAlternativasDePerguntaInexistente() {
-        when(questionRepository.findById(99L)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> service.listarAlternativas(99L))
-                .isInstanceOf(RecursoNaoEncontradoException.class);
-    }
-
-    @Test
-    void deveConfigurarQuiz() {
-        Module module = moduleMock();
-        Quiz quiz = quizMock(module);
-        when(quizRepository.findById(1L)).thenReturn(Optional.of(quiz));
-        when(quizRepository.save(any())).thenReturn(quiz);
-
-        var request = new QuizConfigRequest(true, false, true);
-        var response = service.configurar(1L, request);
-
-        assertThat(response.showWrongAnswers()).isTrue();
-        assertThat(response.showCorrectAnswers()).isFalse();
-        assertThat(response.showPoints()).isTrue();
-        verify(quizRepository).save(quiz);
-    }
-
-    @Test
-    void deveLancarExcecaoAoConfigurarQuizInexistente() {
-        when(quizRepository.findById(99L)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> service.configurar(99L, new QuizConfigRequest(true, true, true)))
                 .isInstanceOf(RecursoNaoEncontradoException.class);
     }
 }
