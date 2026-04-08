@@ -26,14 +26,6 @@ spring:
       max-file-size: 500MB
       max-request-size: 500MB
 
-  ai:
-    openai:
-      base-url: https://api.groq.com/openai
-      api-key: ${GROQ_API_KEY}
-      chat:
-        options:
-          model: llama-3.3-70b-versatile
-
 server:
   port: 8080
 
