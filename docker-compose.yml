@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: poc-llm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-poc_llm_simples}
+      POSTGRES_USER: ${DB_USERNAME:-poc_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-poc123}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-poc_user} -d ${DB_NAME:-poc_llm_simples}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - poc-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: poc-llm-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-poc_llm_simples}
+      DB_USERNAME: ${DB_USERNAME:-poc_user}
+      DB_PASSWORD: ${DB_PASSWORD:-poc123}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      UPLOAD_DIR: /app/uploads
+      RAG_API_URL: ${RAG_API_URL:-http://localhost:8000}
+      RAG_API_KEY: ${RAG_API_KEY:-integracoes-dev-key-mude-em-producao}
+    ports:
+      - "8080:8080"
+    volumes:
+      - uploads_data:/app/uploads
+    networks:
+      - poc-network
+
+volumes:
+  postgres_data:
+  uploads_data:
+
+networks:
+  poc-network:
+    driver: bridge
