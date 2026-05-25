@@ -3,9 +3,10 @@ package br.ufc.llm.shared.exception;
 import br.ufc.llm.shared.dto.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.bind.support.WebExchangeBindException;
+import org.springframework.web.server.ServerWebInputException;
 
 import java.util.stream.Collectors;
 
@@ -24,13 +25,19 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.erro(ex.getMessage()));
     }
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Void>> handleValidacao(MethodArgumentNotValidException ex) {
+    @ExceptionHandler(WebExchangeBindException.class)
+    public ResponseEntity<ApiResponse<Void>> handleValidacao(WebExchangeBindException ex) {
         String mensagem = ex.getBindingResult().getFieldErrors().stream()
                 .map(e -> e.getField() + ": " + e.getDefaultMessage())
                 .collect(Collectors.joining(", "));
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(ApiResponse.erro(mensagem));
+    }
+
+    @ExceptionHandler(ServerWebInputException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInputInvalido(ServerWebInputException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.erro("Entrada inválida: " + ex.getReason()));
     }
 
     @ExceptionHandler(Exception.class)

@@ -1,21 +1,37 @@
 spring:
   application:
-    name: poc-llm-ufc-simples
+    name: poc-llm-ufc-simples-spring
 
+  # Virtual Threads (Java 21) — complementa o modelo reativo do WebFlux
+  threads:
+    virtual:
+      enabled: true
+
+  # R2DBC — conexões reativas não-bloqueantes (equivalente ao asyncpg do FastAPI)
+  r2dbc:
+    url: ${R2DBC_URL:r2dbc:postgresql://poc-llm-postgres:5432/poc_llm_simples}
+    username: ${DB_USERNAME:poc_user}
+    password: ${DB_PASSWORD:poc123}
+    pool:
+      initial-size: 10
+      max-size: 60
+      max-idle-time: 5m
+      max-create-connection-time: 5s
+      validation-query: SELECT 1
+
+  # DataSource JDBC apenas para Flyway (migrações de schema no startup)
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/poc_llm_simples}
+    url: ${DB_URL:jdbc:postgresql://poc-llm-postgres:5432/poc_llm_simples}
     username: ${DB_USERNAME:poc_user}
     password: ${DB_PASSWORD:poc123}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 3
+      minimum-idle: 1
+      connection-timeout: 10000
 
   jpa:
-    hibernate:
-      ddl-auto: validate
-    show-sql: false
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
+    open-in-view: false
 
   flyway:
     enabled: true
@@ -26,22 +42,75 @@ spring:
       max-file-size: 500MB
       max-request-size: 500MB
 
+  data:
+    redis:
+      url: ${REDIS_URL:redis://poc-llm-redis:6379/0}
+      timeout: 2000ms
+      lettuce:
+        shutdown-timeout: 200ms
+        pool:
+          max-active: 60
+          max-idle: 20
+          min-idle: 10
+          max-wait: 1000ms
+
+  # Jackson
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+
 server:
   port: 8080
+  netty:
+    connection-timeout: 10s
+    idle-timeout: 60s
+    worker-count: 16
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/plain
+    min-response-size: 1024
 
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
+  webjars:
+    prefix: ""
 
 upload:
   dir: ${UPLOAD_DIR:uploads}
+
+app:
+  cache-ttl-seconds: 30
+  pending-ttl-seconds: 86400
 
 rag:
   api:
     base-url: ${RAG_API_URL:http://localhost:8000}
     key: ${RAG_API_KEY:integracoes-dev-key-mude-em-producao}
 
+# Actuator + Métricas P95/P99
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5,0.95,0.99
+      slo:
+        http.server.requests: 50ms,100ms,200ms,500ms
+
 logging:
   level:
-    br.ufc.llm: DEBUG
+    br.ufc.llm: INFO
     org.springframework.ai: INFO
+    io.r2dbc: WARN
