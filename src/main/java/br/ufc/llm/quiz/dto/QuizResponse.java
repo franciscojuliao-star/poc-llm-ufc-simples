@@ -12,13 +12,10 @@ public record QuizResponse(
         boolean showPoints,
         List<QuestionResponse> questions
 ) {
-    public static QuizResponse from(Quiz quiz) {
-        List<QuestionResponse> questions = quiz.getQuestions().stream()
-                .map(QuestionResponse::from)
-                .toList();
+    public static QuizResponse from(Quiz quiz, List<QuestionResponse> questions) {
         return new QuizResponse(
                 quiz.getId(),
-                quiz.getModule().getId(),
+                quiz.getModuleId(),
                 quiz.isShowWrongAnswers(),
                 quiz.isShowCorrectAnswers(),
                 quiz.isShowPoints(),

@@ -11,10 +11,7 @@ public record QuestionResponse(
         int orderNum,
         List<AlternativeResponse> alternatives
 ) {
-    public static QuestionResponse from(Question q) {
-        List<AlternativeResponse> alts = q.getAlternatives().stream()
-                .map(AlternativeResponse::from)
-                .toList();
-        return new QuestionResponse(q.getId(), q.getStatement(), q.getPoints(), q.getOrderNum(), alts);
+    public static QuestionResponse from(Question q, List<AlternativeResponse> alternatives) {
+        return new QuestionResponse(q.getId(), q.getStatement(), q.getPoints(), q.getOrderNum(), alternatives);
     }
 }

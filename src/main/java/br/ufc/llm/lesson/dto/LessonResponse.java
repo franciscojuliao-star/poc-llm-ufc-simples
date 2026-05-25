@@ -1,6 +1,5 @@
 package br.ufc.llm.lesson.dto;
 
-import br.ufc.llm.lesson.domain.FileType;
 import br.ufc.llm.lesson.domain.Lesson;
 
 import java.time.LocalDateTime;
@@ -10,7 +9,7 @@ public record LessonResponse(
         String name,
         int orderNum,
         String filePath,
-        FileType fileType,
+        String fileType,
         String contentEditor,
         String contentGenerated,
         Long moduleId,
@@ -26,7 +25,7 @@ public record LessonResponse(
                 lesson.getFileType(),
                 lesson.getContentEditor(),
                 lesson.getContentGenerated(),
-                lesson.getModule().getId(),
+                lesson.getModuleId(),
                 lesson.getCreatedAt(),
                 lesson.getUpdatedAt()
         );

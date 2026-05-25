@@ -1,14 +1,13 @@
 package br.ufc.llm.course.domain;
 
-import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.UpdateTimestamp;
-import org.hibernate.annotations.CreationTimestamp;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "courses")
+@Table("courses")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -17,26 +16,18 @@ import java.time.LocalDateTime;
 public class Course {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
     private String title;
-
-    @Column(nullable = false, length = 100)
     private String category;
-
-    @Column(nullable = false, columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "image_path", length = 500)
+    @Column("image_path")
     private String imagePath;
 
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column("created_at")
     private LocalDateTime createdAt;
 
-    @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
+    @Column("updated_at")
     private LocalDateTime updatedAt;
 }

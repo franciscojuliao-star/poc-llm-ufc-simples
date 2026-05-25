@@ -1,15 +1,13 @@
 package br.ufc.llm.lesson.domain;
 
-import br.ufc.llm.module.domain.Module;
-import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "lessons")
+@Table("lessons")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -18,37 +16,31 @@ import java.time.LocalDateTime;
 public class Lesson {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
     private String name;
 
-    @Column(name = "order_num", nullable = false)
+    @Column("order_num")
     private int orderNum;
 
-    @Column(name = "file_path", length = 500)
+    @Column("file_path")
     private String filePath;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "file_type", length = 10)
-    private FileType fileType;
+    @Column("file_type")
+    private String fileType;
 
-    @Column(name = "content_editor", columnDefinition = "TEXT")
+    @Column("content_editor")
     private String contentEditor;
 
-    @Column(name = "content_generated", columnDefinition = "TEXT")
+    @Column("content_generated")
     private String contentGenerated;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "module_id", nullable = false)
-    private Module module;
+    @Column("module_id")
+    private Long moduleId;
 
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column("created_at")
     private LocalDateTime createdAt;
 
-    @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
+    @Column("updated_at")
     private LocalDateTime updatedAt;
 }

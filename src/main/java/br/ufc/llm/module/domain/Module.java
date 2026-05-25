@@ -1,15 +1,13 @@
 package br.ufc.llm.module.domain;
 
-import br.ufc.llm.course.domain.Course;
-import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "modules")
+@Table("modules")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -18,27 +16,22 @@ import java.time.LocalDateTime;
 public class Module {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 50)
     private String name;
 
-    @Column(name = "order_num", nullable = false)
+    @Column("order_num")
     private int orderNum;
 
-    @Column(name = "image_path", length = 500)
+    @Column("image_path")
     private String imagePath;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "course_id", nullable = false)
-    private Course course;
+    @Column("course_id")
+    private Long courseId;
 
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column("created_at")
     private LocalDateTime createdAt;
 
-    @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
+    @Column("updated_at")
     private LocalDateTime updatedAt;
 }

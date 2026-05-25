@@ -1,11 +1,11 @@
 package br.ufc.llm.module.repository;
 
 import br.ufc.llm.module.domain.Module;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.r2dbc.repository.R2dbcRepository;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
-import java.util.List;
-
-public interface ModuleRepository extends JpaRepository<Module, Long> {
-    List<Module> findByCourseIdOrderByOrderNumAsc(Long courseId);
-    int countByCourseId(Long courseId);
+public interface ModuleRepository extends R2dbcRepository<Module, Long> {
+    Flux<Module> findByCourseIdOrderByOrderNumAsc(Long courseId);
+    Mono<Long> countByCourseId(Long courseId);
 }

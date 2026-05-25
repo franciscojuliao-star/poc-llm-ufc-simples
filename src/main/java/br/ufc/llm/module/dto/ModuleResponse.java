@@ -19,7 +19,7 @@ public record ModuleResponse(
                 module.getName(),
                 module.getOrderNum(),
                 module.getImagePath(),
-                module.getCourse().getId(),
+                module.getCourseId(),
                 module.getCreatedAt(),
                 module.getUpdatedAt()
         );

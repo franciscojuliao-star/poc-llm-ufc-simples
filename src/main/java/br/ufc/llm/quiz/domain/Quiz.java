@@ -1,17 +1,13 @@
 package br.ufc.llm.quiz.domain;
 
-import br.ufc.llm.module.domain.Module;
-import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
-@Entity
-@Table(name = "quizzes")
+@Table("quizzes")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -20,32 +16,23 @@ import java.util.List;
 public class Quiz {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "module_id", nullable = false, unique = true)
-    private Module module;
+    @Column("module_id")
+    private Long moduleId;
 
-    @Column(name = "show_wrong_answers", nullable = false)
+    @Column("show_wrong_answers")
     private boolean showWrongAnswers;
 
-    @Column(name = "show_correct_answers", nullable = false)
+    @Column("show_correct_answers")
     private boolean showCorrectAnswers;
 
-    @Column(name = "show_points", nullable = false)
+    @Column("show_points")
     private boolean showPoints;
 
-    @OneToMany(mappedBy = "quiz", cascade = CascadeType.ALL, orphanRemoval = true)
-    @OrderBy("orderNum ASC")
-    @Builder.Default
-    private List<Question> questions = new ArrayList<>();
-
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column("created_at")
     private LocalDateTime createdAt;
 
-    @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
+    @Column("updated_at")
     private LocalDateTime updatedAt;
 }
