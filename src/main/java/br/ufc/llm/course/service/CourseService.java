@@ -9,13 +9,17 @@ import br.ufc.llm.shared.exception.RegraDeNegocioException;
 import lombok.RequiredArgsConstructor;
 import org.apache.tika.Tika;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,54 +33,47 @@ public class CourseService {
     @Value("${upload.dir:uploads}")
     private String uploadDir;
 
-    public CourseResponse criar(CourseRequest request, MultipartFile imagem) {
+    public Mono<CourseResponse> criar(CourseRequest request, FilePart imagem) {
+        LocalDateTime now = LocalDateTime.now();
         Course course = Course.builder()
                 .title(request.title())
                 .category(request.category())
                 .description(request.description())
+                .createdAt(now)
+                .updatedAt(now)
                 .build();
 
-        if (imagem != null && !imagem.isEmpty()) {
-            validarImagem(imagem);
-            course.setImagePath(salvarImagem(imagem));
+        if (imagem != null) {
+            return salvarImagem(imagem)
+                    .flatMap(path -> {
+                        course.setImagePath(path);
+                        return repository.save(course);
+                    })
+                    .map(CourseResponse::from);
         }
 
-        return CourseResponse.from(repository.save(course));
+        return repository.save(course).map(CourseResponse::from);
     }
 
-    public List<CourseResponse> listar() {
-        return repository.findAll().stream()
+    public Mono<List<CourseResponse>> listar(int page, int perPage) {
+        return repository.findAllBy(PageRequest.of(page - 1, perPage))
                 .map(CourseResponse::from)
-                .toList();
+                .collectList();
     }
 
-    public CourseResponse buscarPorId(Long id) {
+    public Mono<CourseResponse> buscarPorId(Long id) {
         return repository.findById(id)
                 .map(CourseResponse::from)
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Curso não encontrado: " + id));
+                .switchIfEmpty(Mono.error(new RecursoNaoEncontradoException("Curso não encontrado: " + id)));
     }
 
-    private void validarImagem(MultipartFile imagem) {
-        try {
-            String mimeType = tika.detect(imagem.getInputStream());
-            if (!mimeType.startsWith("image/")) {
-                throw new RegraDeNegocioException("Arquivo não é uma imagem válida: " + mimeType);
-            }
-        } catch (IOException e) {
-            throw new RegraDeNegocioException("Erro ao validar imagem");
-        }
-    }
-
-    private String salvarImagem(MultipartFile imagem) {
-        try {
+    private Mono<String> salvarImagem(FilePart filePart) {
+        return Mono.fromCallable(() -> {
             Path dir = Paths.get(uploadDir);
             Files.createDirectories(dir);
-            String nomeArquivo = UUID.randomUUID() + "_" + imagem.getOriginalFilename();
-            Path destino = dir.resolve(nomeArquivo);
-            imagem.transferTo(destino);
-            return destino.toString();
-        } catch (IOException e) {
-            throw new RegraDeNegocioException("Erro ao salvar imagem: " + e.getMessage());
-        }
+            return dir.resolve(UUID.randomUUID() + "_" + filePart.filename()).toString();
+        })
+        .subscribeOn(Schedulers.boundedElastic())
+        .flatMap(destPath -> filePart.transferTo(Paths.get(destPath)).thenReturn(destPath));
     }
 }

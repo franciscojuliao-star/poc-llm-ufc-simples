@@ -1,24 +1,24 @@
 package br.ufc.llm.lesson.service;
 
-import br.ufc.llm.lesson.domain.FileType;
 import br.ufc.llm.lesson.domain.Lesson;
 import br.ufc.llm.lesson.dto.LessonRequest;
 import br.ufc.llm.lesson.dto.LessonResponse;
 import br.ufc.llm.lesson.repository.LessonRepository;
-import br.ufc.llm.module.domain.Module;
 import br.ufc.llm.module.repository.ModuleRepository;
 import br.ufc.llm.shared.exception.RecursoNaoEncontradoException;
 import br.ufc.llm.shared.exception.RegraDeNegocioException;
 import lombok.RequiredArgsConstructor;
 import org.apache.tika.Tika;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,74 +33,87 @@ public class LessonService {
     @Value("${upload.dir:uploads}")
     private String uploadDir;
 
-    public LessonResponse criar(Long moduleId, LessonRequest request, MultipartFile arquivo) {
-        Module module = moduleRepository.findById(moduleId)
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Módulo não encontrado: " + moduleId));
+    public Mono<LessonResponse> criar(Long moduleId, LessonRequest request, FilePart arquivo) {
+        return moduleRepository.existsById(moduleId)
+                .flatMap(exists -> {
+                    if (!exists) {
+                        return Mono.error(new RecursoNaoEncontradoException("Módulo não encontrado: " + moduleId));
+                    }
+                    return lessonRepository.countByModuleId(moduleId);
+                })
+                .flatMap(count -> {
+                    LocalDateTime now = LocalDateTime.now();
+                    Lesson lesson = Lesson.builder()
+                            .name(request.name())
+                            .orderNum(count.intValue() + 1)
+                            .contentEditor(request.contentEditor())
+                            .moduleId(moduleId)
+                            .createdAt(now)
+                            .updatedAt(now)
+                            .build();
 
-        int ordem = lessonRepository.countByModuleId(moduleId) + 1;
-
-        Lesson lesson = Lesson.builder()
-                .name(request.name())
-                .orderNum(ordem)
-                .contentEditor(request.contentEditor())
-                .module(module)
-                .build();
-
-        if (arquivo != null && !arquivo.isEmpty()) {
-            FileType fileType = detectarTipo(arquivo);
-            String filePath = salvarArquivo(arquivo);
-            lesson.setFilePath(filePath);
-            lesson.setFileType(fileType);
-        }
-
-        return LessonResponse.from(lessonRepository.save(lesson));
+                    if (arquivo != null) {
+                        return salvarArquivo(arquivo)
+                                .flatMap(result -> {
+                                    lesson.setFilePath(result.path());
+                                    lesson.setFileType(result.tipo());
+                                    return lessonRepository.save(lesson);
+                                });
+                    }
+                    return lessonRepository.save(lesson);
+                })
+                .map(LessonResponse::from);
     }
 
-    public List<LessonResponse> listarPorModulo(Long moduleId) {
-        if (!moduleRepository.existsById(moduleId)) {
-            throw new RecursoNaoEncontradoException("Módulo não encontrado: " + moduleId);
-        }
-        return lessonRepository.findByModuleIdOrderByOrderNumAsc(moduleId).stream()
-                .map(LessonResponse::from)
-                .toList();
+    public Mono<List<LessonResponse>> listarPorModulo(Long moduleId) {
+        return moduleRepository.existsById(moduleId)
+                .flatMap(exists -> {
+                    if (!exists) {
+                        return Mono.error(new RecursoNaoEncontradoException("Módulo não encontrado: " + moduleId));
+                    }
+                    return lessonRepository.findByModuleIdOrderByOrderNumAsc(moduleId)
+                            .map(LessonResponse::from)
+                            .collectList();
+                });
     }
 
-    public LessonResponse buscarPorId(Long id) {
+    public Mono<LessonResponse> buscarPorId(Long id) {
         return lessonRepository.findById(id)
                 .map(LessonResponse::from)
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Aula não encontrada: " + id));
+                .switchIfEmpty(Mono.error(new RecursoNaoEncontradoException("Aula não encontrada: " + id)));
     }
 
-    public Lesson buscarEntidade(Long id) {
+    public Mono<Lesson> buscarEntidade(Long id) {
         return lessonRepository.findById(id)
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Aula não encontrada: " + id));
+                .switchIfEmpty(Mono.error(new RecursoNaoEncontradoException("Aula não encontrada: " + id)));
     }
 
-    public void salvarConteudoGerado(Lesson lesson) {
-        lessonRepository.save(lesson);
+    public Mono<Void> salvarConteudoGerado(Lesson lesson) {
+        lesson.setUpdatedAt(LocalDateTime.now());
+        return lessonRepository.save(lesson).then();
     }
 
-    private String salvarArquivo(MultipartFile arquivo) {
-        try {
+    private record ArquivoSalvo(String path, String tipo) {}
+
+    private Mono<ArquivoSalvo> salvarArquivo(FilePart filePart) {
+        return Mono.fromCallable(() -> {
             Path dir = Paths.get(uploadDir);
             Files.createDirectories(dir);
-            String nomeArquivo = UUID.randomUUID() + "_" + arquivo.getOriginalFilename();
-            Path destino = dir.resolve(nomeArquivo);
-            arquivo.transferTo(destino);
-            return destino.toString();
-        } catch (IOException e) {
-            throw new RegraDeNegocioException("Erro ao salvar arquivo: " + e.getMessage());
-        }
+            String nome = UUID.randomUUID() + "_" + filePart.filename();
+            return dir.resolve(nome).toString();
+        })
+        .subscribeOn(Schedulers.boundedElastic())
+        .flatMap(destPath -> {
+            String tipo = detectarTipo(filePart.filename());
+            return filePart.transferTo(Paths.get(destPath))
+                    .thenReturn(new ArquivoSalvo(destPath, tipo));
+        });
     }
 
-    private FileType detectarTipo(MultipartFile arquivo) {
-        try {
-            String mimeType = tika.detect(arquivo.getInputStream());
-            if (mimeType.equals("application/pdf")) return FileType.PDF;
-            if (mimeType.startsWith("video/")) return FileType.VIDEO;
-            throw new RegraDeNegocioException("Tipo de arquivo não suportado: " + mimeType);
-        } catch (IOException e) {
-            throw new RegraDeNegocioException("Erro ao detectar tipo do arquivo");
-        }
+    private String detectarTipo(String filename) {
+        String lower = filename.toLowerCase();
+        if (lower.endsWith(".pdf")) return "PDF";
+        if (lower.endsWith(".mp4") || lower.endsWith(".webm") || lower.endsWith(".avi")) return "VIDEO";
+        return "PDF";
     }
 }

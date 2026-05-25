@@ -1,7 +1,7 @@
 package br.ufc.llm.shared.client;
 
-import br.ufc.llm.quiz.dto.AlternativeResponse;
-import br.ufc.llm.quiz.dto.QuestionResponse;
+import br.ufc.llm.quiz.dto.AlternativeRequest;
+import br.ufc.llm.quiz.dto.QuestionRequest;
 import br.ufc.llm.quiz.dto.QuizGeneratedResponse;
 import br.ufc.llm.shared.exception.RegraDeNegocioException;
 import lombok.extern.slf4j.Slf4j;
@@ -97,17 +97,17 @@ public class RagIntegracaoClient {
 
     @SuppressWarnings("unchecked")
     private QuizGeneratedResponse parseQuiz(List<?> lista) {
-        List<QuestionResponse> questions = lista.stream().map(item -> {
+        List<QuestionRequest> questions = lista.stream().map(item -> {
             Map<String, Object> q = (Map<String, Object>) item;
             String statement = (String) q.get("statement");
             int points = ((Number) q.getOrDefault("points", 1)).intValue();
 
             List<Map<String, Object>> alts = (List<Map<String, Object>>) q.get("alternatives");
-            List<AlternativeResponse> alternatives = alts == null ? List.of() : alts.stream()
-                    .map(a -> new AlternativeResponse(null, (String) a.get("text"), Boolean.TRUE.equals(a.get("correct"))))
+            List<AlternativeRequest> alternatives = alts == null ? List.of() : alts.stream()
+                    .map(a -> new AlternativeRequest((String) a.get("text"), Boolean.TRUE.equals(a.get("correct"))))
                     .toList();
 
-            return new QuestionResponse(null, statement, points, 0, alternatives);
+            return new QuestionRequest(statement, points, alternatives);
         }).toList();
 
         return new QuizGeneratedResponse(questions);

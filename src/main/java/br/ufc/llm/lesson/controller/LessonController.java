@@ -4,16 +4,18 @@ import br.ufc.llm.lesson.dto.LessonRequest;
 import br.ufc.llm.lesson.dto.LessonResponse;
 import br.ufc.llm.lesson.service.LessonAiService;
 import br.ufc.llm.lesson.service.LessonService;
+import br.ufc.llm.shared.cache.CacheService;
 import br.ufc.llm.shared.dto.ApiResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
+import reactor.core.publisher.Mono;
 
-import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
@@ -21,49 +23,78 @@ public class LessonController {
 
     private final LessonService service;
     private final LessonAiService aiService;
+    private final CacheService cache;
     private final ObjectMapper objectMapper;
 
+    private static String keyList(Long moduleId) { return "lessons:module:" + moduleId; }
+    private static String keyOne(Long id)        { return "lesson:" + id; }
+
     @PostMapping(value = "/modules/{moduleId}/lessons", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ApiResponse<LessonResponse>> criar(
+    public Mono<ResponseEntity<ApiResponse<LessonResponse>>> criar(
             @PathVariable Long moduleId,
-            @RequestParam("dados") String dadosJson,
-            @RequestParam(value = "arquivo", required = false) MultipartFile arquivo) throws Exception {
-        LessonRequest request = objectMapper.readValue(dadosJson, LessonRequest.class);
-        LessonResponse response = service.criar(moduleId, request, arquivo);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.ok("Aula criada com sucesso", response));
+            @RequestPart("dados") String dadosJson,
+            @RequestPart(value = "arquivo", required = false) FilePart arquivo) {
+        return Mono.fromCallable(() -> objectMapper.readValue(dadosJson, LessonRequest.class))
+                .flatMap(request -> service.criar(moduleId, request, arquivo))
+                .flatMap(dados -> cache.delete(keyList(moduleId)).thenReturn(dados))
+                .map(dados -> ResponseEntity.status(HttpStatus.CREATED)
+                        .body(ApiResponse.ok("Aula criada com sucesso", dados)));
     }
 
     @GetMapping("/modules/{moduleId}/lessons")
-    public ResponseEntity<ApiResponse<List<LessonResponse>>> listar(@PathVariable Long moduleId) {
-        return ResponseEntity.ok(ApiResponse.ok(service.listarPorModulo(moduleId)));
+    public Mono<ResponseEntity<String>> listar(@PathVariable Long moduleId) {
+        String key = keyList(moduleId);
+        return cache.get(key)
+                .map(cached -> ResponseEntity.ok()
+                        .contentType(MediaType.APPLICATION_JSON).body(cached))
+                .switchIfEmpty(
+                        service.listarPorModulo(moduleId)
+                                .flatMap(dados -> Mono.fromCallable(
+                                        () -> objectMapper.writeValueAsString(ApiResponse.ok(dados))))
+                                .flatMap(body -> cache.set(key, body).thenReturn(body))
+                                .map(body -> ResponseEntity.ok()
+                                        .contentType(MediaType.APPLICATION_JSON).body(body))
+                );
     }
 
     @GetMapping("/lessons/{id}")
-    public ResponseEntity<ApiResponse<LessonResponse>> buscar(@PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponse.ok(service.buscarPorId(id)));
+    public Mono<ResponseEntity<String>> buscar(@PathVariable Long id) {
+        String key = keyOne(id);
+        return cache.get(key)
+                .map(cached -> ResponseEntity.ok()
+                        .contentType(MediaType.APPLICATION_JSON).body(cached))
+                .switchIfEmpty(
+                        service.buscarPorId(id)
+                                .flatMap(dados -> Mono.fromCallable(
+                                        () -> objectMapper.writeValueAsString(ApiResponse.ok(dados))))
+                                .flatMap(body -> cache.set(key, body).thenReturn(body))
+                                .map(body -> ResponseEntity.ok()
+                                        .contentType(MediaType.APPLICATION_JSON).body(body))
+                );
     }
 
     @PostMapping("/lessons/{id}/gerar-conteudo")
-    public ResponseEntity<ApiResponse<String>> gerarConteudo(@PathVariable Long id) {
-        String conteudo = aiService.gerarConteudo(id);
-        return ResponseEntity.ok(ApiResponse.ok("Conteúdo gerado pela IA", conteudo));
+    public Mono<ResponseEntity<ApiResponse<Map<String, String>>>> gerarConteudo(@PathVariable Long id) {
+        return aiService.gerarConteudo(id)
+                .map(task -> ResponseEntity.ok(ApiResponse.ok("Conteúdo enfileirado para geração via IA", task)));
     }
 
     @GetMapping("/lessons/{id}/conteudo-pendente")
-    public ResponseEntity<ApiResponse<String>> conteudoPendente(@PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponse.ok(aiService.buscarConteudoPendente(id)));
+    public Mono<ResponseEntity<ApiResponse<String>>> conteudoPendente(@PathVariable Long id) {
+        return aiService.buscarConteudoPendente(id)
+                .map(content -> ResponseEntity.ok(ApiResponse.ok(content)));
     }
 
     @PostMapping("/lessons/{id}/confirmar-conteudo")
-    public ResponseEntity<ApiResponse<LessonResponse>> confirmarConteudo(@PathVariable Long id) {
-        LessonResponse response = aiService.confirmarConteudo(id);
-        return ResponseEntity.ok(ApiResponse.ok("Conteúdo confirmado e salvo", response));
+    public Mono<ResponseEntity<ApiResponse<LessonResponse>>> confirmarConteudo(@PathVariable Long id) {
+        return aiService.confirmarConteudo(id)
+                .flatMap(dados -> cache.delete(keyOne(id)).thenReturn(dados))
+                .map(dados -> ResponseEntity.ok(ApiResponse.ok("Conteúdo confirmado e salvo", dados)));
     }
 
     @PostMapping("/lessons/{id}/regerar-conteudo")
-    public ResponseEntity<ApiResponse<String>> regerarConteudo(@PathVariable Long id) {
-        String conteudo = aiService.gerarConteudo(id);
-        return ResponseEntity.ok(ApiResponse.ok("Conteúdo regerado pela IA", conteudo));
+    public Mono<ResponseEntity<ApiResponse<Map<String, String>>>> regerarConteudo(@PathVariable Long id) {
+        return aiService.gerarConteudo(id)
+                .map(task -> ResponseEntity.ok(ApiResponse.ok("Conteúdo regerado e enfileirado via IA", task)));
     }
 }
